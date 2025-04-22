@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+# Script Name: tobacco_nation
+# Author: Yuyan Yang
+# Description:  This script analyzes data linked to the 2024 WHO global report on trends in the prevalence of tobacco use from 2000 to 2030.
+# The script will also perform various analyses on this data to derive the trends in tobacco use prevalence over the specified period.
+
+# Verify that the right amount of arguments (3) is supplied
+# Check if the number of arguments is not equal to 3
+
+if [[ $# -ne 3 ]] 
+then
+    echo Usage "$0 tobacco_nation <csv data file>  < year | country code >  < Male | Female >"  
+    exit 1
+fi
+
+# Extract arguments
+
+csv_file="$1"
+year_or_code="$2"
+gender="$3"
+
+# Verify that the supplied CSV file with data exists and is not empty
+
+if [[ ! -s "$csv_file" ]]
+then
+    echo "The named input file $csv_file does not exist or has zero length."
+    exit 1
+fi
+
+# Verify if the gender is correct if not output the corresponding content
+
+if [[ $gender != "Male" && $gender != "Female" ]]
+then
+     echo "Invalid gender. Please provide either Male or Female."
+     exit 1
+fi
+
+# Verify whether the second argument year_or_code is a year or a country code
+# If $year_or_code contains four consecutive numbers selected between [0-9] then it is a year
+
+if [[ $year_or_code =~ [0-9]{4} ]]
+then
+
+# Find the minimum and maximum years in the CSV file to determine the year range
+
+max_year=$(tail $csv_file -n +2 | cut -d, -f5 | sort -n | uniq | tail -n1)
+min_year=$(tail $csv_file -n +2 | cut -d, -f5 | sort -n | uniq | head -n1)
+
+# Determine which nation has the highest percentage of tobacco smokers for a certain year or gender
+# Matching a particular year and gender from the file
+# sorted by column 7 (medianPC)
+# The last row in the sorted result is returned and saved to the $output
+
+    if [[ $year_or_code -ge $min_year && $year_or_code -le $max_year ]]
+    then
+    year=$year_or_code
+    output=$(grep "$year" "$csv_file" | grep "$gender" | sort -k 7 -t, -n | tail -n1)
+    country=$(echo "$output" | cut -d, -f4)
+    rate=$(echo "$output" | cut -d, -f7)
+    countryCode=$(echo "$output" | cut -d, -f3)
+
+# Use the word "was" to indicate the rate if the year is past; use "is predicted to be" if the year is future
+# If the year is in the past
+
+        if [[ $year -lt 2025 ]]
+        then
+            echo "The global maximum percentage of $gender tobacco users in $year was in $country($countryCode) at $rate."
+
+# If the year is in the future   
+
+        else
+            echo "The global maximum percentage of $gender tobacco users in $year is predicted to be in $country($countryCode) at $rate."
+        fi
+
+    else
+        echo "Error: Invalid input. Please provide a valid year."
+    fi
+
+# If it is a string of country code
+
+# Matching a particular code of country and gender from the file
+# sorted by column 7 (medianPC)
+# The last row in the sorted result is returned and saved to the $output_2
+
+else
+
+# Verify the country code is listed in the data file then given to the variable corr_code
+
+    corr_code=$(grep $year_or_code $csv_file)
+
+# Check whether the corr_code variable contains a non-null value
+
+    if [[ -n $corr_code ]]
+    then
+        code_of_country=$year_or_code
+        output_2=$(grep "$code_of_country" "$csv_file" | grep "$gender" | sort -k 7 -t, -n | tail -n1)
+        country_2=$(echo "$output_2" | cut -d, -f4)
+        rate_2=$(echo "$output_2" | cut -d, -f7)
+        year_2=$(echo "$output_2"| cut -d, -f5)
+
+# Use the word "was" to indicate the rate if the year is past; use "is predicted to be" if the year is future
+# If the year is in the past
+
+        if [[ $year_2 -lt 2025 ]]
+        then
+            echo "The global maximum percentage of tobacco users for $country_2($code_of_country) was $rate_2 in $year_2."
+
+# If the year is in the future
+
+        else
+            echo "The global maximum percentage of tobacco users for $country_2($code_of_country) is predicted to be $rate_2 in $year_2."
+        fi 
+    else
+        echo "Error: Invalid input. Please provide a valid country code."
+    fi
+fi
